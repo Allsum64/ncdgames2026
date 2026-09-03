@@ -300,6 +300,12 @@ async function handleRegisterSubmit(ev){
   }
 
   const teamRow = {
+    // Generated client-side rather than left to the DB default: the public
+    // registration role can INSERT into teams but deliberately has no
+    // SELECT policy on it (privacy), so asking Postgres to hand the row
+    // back via RETURNING would itself get blocked by RLS. Knowing the id
+    // up front avoids needing it back at all.
+    id: crypto.randomUUID(),
     club_name: get("clubName"),
     sporting_code: sportingCode,
     category: category,
@@ -335,7 +341,7 @@ async function handleRegisterSubmit(ev){
   const btn = f.querySelector("button[type=submit]");
   btn.disabled = true; btn.textContent = "Submitting…";
 
-  const { data: team, error: teamErr } = await sb.from("teams").insert(teamRow).select().single();
+  const { error: teamErr } = await sb.from("teams").insert(teamRow);
   if(teamErr){
     btn.disabled = false; btn.textContent = "Submit Registration";
     showToast("Could not submit registration: " + teamErr.message);
@@ -343,7 +349,7 @@ async function handleRegisterSubmit(ev){
   }
 
   if(players.length){
-    const rows = players.map(p=>({ ...p, team_id: team.id }));
+    const rows = players.map(p=>({ ...p, team_id: teamRow.id }));
     const { error: playersErr } = await sb.from("players").insert(rows);
     if(playersErr){
       showToast("Team saved, but players failed to save: " + playersErr.message);
@@ -352,7 +358,7 @@ async function handleRegisterSubmit(ev){
 
   btn.disabled = false; btn.textContent = "Submit Registration";
   state.formPlayers = [];
-  showToast(`Team "${team.club_name}" registered — pending approval.`);
+  showToast(`Team "${teamRow.club_name}" registered — pending approval.`);
   f.reset();
   render();
 }
