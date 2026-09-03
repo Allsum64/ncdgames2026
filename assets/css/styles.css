@@ -83,6 +83,8 @@ input[type=text],input[type=email],input[type=tel],input[type=date],input[type=n
   font-family:'IBM Plex Sans',sans-serif; font-size:14px; color:var(--ink);
 }
 input:focus,select:focus,textarea:focus{ outline:2px solid var(--sun); outline-offset:1px; }
+input[readonly]{ background:var(--paper-2); color:var(--ash); cursor:not-allowed; }
+input[readonly]:focus{ outline:none; }
 fieldset{ border:1px solid var(--line); padding:14px; margin:0 0 18px 0; }
 legend{ font-family:'Anton',sans-serif; font-size:15px; padding:0 8px; color:var(--ink); }
 

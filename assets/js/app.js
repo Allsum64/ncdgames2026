@@ -475,17 +475,17 @@ function renderDetailModal(){
       <div class="note">Approving a team auto-generates its invoice number below; ticking "Payment Received" auto-generates the receipt number. Both are printable — save as PDF or hand over a physical printout, no email needed.</div>
       <div class="grid2">
         <div class="field"><label>Payment Received</label>
-          <select id="detPaid"><option value="no" ${!t.payment_paid?'selected':''}>No</option><option value="yes" ${t.payment_paid?'selected':''}>Yes</option></select>
+          <select id="detPaid" onchange="updatePaymentRequiredHint()"><option value="no" ${!t.payment_paid?'selected':''}>No</option><option value="yes" ${t.payment_paid?'selected':''}>Yes</option></select>
         </div>
         <div class="field"><label>Amount (K)</label><input type="text" id="detAmount" value="${escapeAttr(t.payment_amount ?? '')}"></div>
       </div>
       <div class="grid2">
-        <div class="field"><label>Processed By</label><input type="text" id="detProcessedBy" value="${escapeAttr(t.payment_processed_by||'')}"></div>
-        <div class="field"><label>Date Received</label><input type="date" id="detDateReceived" value="${escapeAttr(t.payment_date_received||'')}"></div>
+        <div class="field"><label id="detProcessedByLabel">Processed By</label><input type="text" id="detProcessedBy" value="${escapeAttr(t.payment_processed_by||'')}"></div>
+        <div class="field"><label id="detDateReceivedLabel">Date Received</label><input type="date" id="detDateReceived" value="${escapeAttr(t.payment_date_received||'')}"></div>
       </div>
       <div class="grid2">
-        <div class="field"><label>Invoice Number</label><input type="text" id="detInvoice" value="${escapeAttr(t.invoice_number||'')}" placeholder="Auto on approval"></div>
-        <div class="field"><label>Receipt Number</label><input type="text" id="detReceipt" value="${escapeAttr(t.receipt_number||'')}" placeholder="Auto on payment"></div>
+        <div class="field"><label>Invoice Number</label><input type="text" id="detInvoice" value="${escapeAttr(t.invoice_number||'')}" placeholder="Auto on approval" readonly></div>
+        <div class="field"><label>Receipt Number</label><input type="text" id="detReceipt" value="${escapeAttr(t.receipt_number||'')}" placeholder="Auto on payment" readonly></div>
       </div>
       <div class="filters" style="margin-bottom:0;">
         ${t.invoice_number ? `<button class="btn secondary small" onclick="printInvoice('${t.id}')">Print Invoice</button>` : ""}
@@ -516,11 +516,19 @@ async function saveDetail(id){
 
   const newStatus = document.getElementById("detStatus").value;
   const newPaid = document.getElementById("detPaid").value==="yes";
+  const processedBy = document.getElementById("detProcessedBy").value.trim();
+  const dateReceived = document.getElementById("detDateReceived").value;
+
+  if(newPaid && (!processedBy || !dateReceived)){
+    showToast("Processed By and Date Received are required to mark payment as received.");
+    return;
+  }
+
   const patch = {
     payment_paid: newPaid,
     payment_amount: Number(document.getElementById("detAmount").value) || 0,
-    payment_processed_by: document.getElementById("detProcessedBy").value || null,
-    payment_date_received: document.getElementById("detDateReceived").value || null,
+    payment_processed_by: processedBy || null,
+    payment_date_received: dateReceived || null,
     invoice_number: document.getElementById("detInvoice").value || null,
     receipt_number: document.getElementById("detReceipt").value || null,
     approval_status: newStatus,
@@ -894,8 +902,24 @@ function attachHandlers(){
   if(state.tab==="directory" && state.detailTeamId){
     const t = state.teams.find(x=>x.id===state.detailTeamId);
     if(t && t._players===undefined){ t._players = null; fetchDetailPlayers(t.id); }
+    updatePaymentRequiredHint();
   }
 }
+
+// Processed By / Date Received are only mandatory once payment is marked
+// as received — nothing to record for them before that. Reflects that in
+// the labels live as the admin toggles the select, mirrored by the actual
+// validation in saveDetail().
+function updatePaymentRequiredHint(){
+  const paidEl = document.getElementById("detPaid");
+  if(!paidEl) return;
+  const required = paidEl.value === "yes";
+  const byLabel = document.getElementById("detProcessedByLabel");
+  const dateLabel = document.getElementById("detDateReceivedLabel");
+  if(byLabel) byLabel.textContent = required ? "Processed By *" : "Processed By";
+  if(dateLabel) dateLabel.textContent = required ? "Date Received *" : "Date Received";
+}
+window.updatePaymentRequiredHint = updatePaymentRequiredHint;
 
 /* ---------------- Init ---------------- */
 if(sb){
