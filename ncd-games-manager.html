@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NCD Games 2026 — Competition Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16140F;
+    --ink-2:#211E17;
+    --paper:#F5F0E4;
+    --paper-2:#EAE3D2;
+    --sun:#F5B700;
+    --ember:#C6362B;
+    --pitch:#1F6F4A;
+    --ash:#6B655A;
+    --line:#D8CFB8;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'IBM Plex Sans',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.headline{
+    font-family:'Anton',sans-serif;
+    font-weight:400;
+    letter-spacing:0.01em;
+    text-transform:uppercase;
+    line-height:1.05;
+  }
+  .mono{ font-family:'IBM Plex Mono',monospace; }
+
+  header.topbar{
+    background:var(--ink);
+    color:var(--paper);
+    padding:22px 28px 0 28px;
+    position:sticky; top:0; z-index:20;
+  }
+  .topbar-inner{
+    display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:14px;
+    padding-bottom:16px;
+    border-bottom:1px solid rgba(245,240,228,0.15);
+  }
+  .brand{ display:flex; align-items:baseline; gap:12px; }
+  .brand h1{ font-size:30px; color:var(--sun); margin:0; }
+  .brand span.sub{ color:var(--paper); opacity:0.65; font-size:13px; letter-spacing:0.04em; }
+  .dates{ text-align:right; font-size:12.5px; color:var(--paper); opacity:0.75; }
+  .dates b{ color:var(--sun); }
+
+  nav.tabs{
+    display:flex; gap:2px; margin-top:14px; overflow-x:auto;
+  }
+  nav.tabs button{
+    background:none; border:none; color:var(--paper); opacity:0.55;
+    font-family:'IBM Plex Sans',sans-serif; font-weight:600; font-size:13.5px;
+    padding:12px 16px; cursor:pointer; white-space:nowrap;
+    border-bottom:3px solid transparent;
+  }
+  nav.tabs button:hover{ opacity:0.85; }
+  nav.tabs button.active{
+    opacity:1; color:var(--sun); border-bottom-color:var(--sun);
+  }
+
+  main{ max-width:1080px; margin:0 auto; padding:28px 20px 80px 20px; }
+  .panel{ background:#fff; border:1px solid var(--line); padding:24px; margin-bottom:20px; }
+  .panel h2{ font-size:22px; margin:0 0 4px 0; }
+  .panel .desc{ color:var(--ash); font-size:13.5px; margin:0 0 20px 0; }
+
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .grid4{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  @media(max-width:640px){ .grid2,.grid4{ grid-template-columns:1fr; } }
+
+  label{ display:block; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:0.03em; color:var(--ash); margin-bottom:5px; }
+  .field{ margin-bottom:14px; }
+  input[type=text],input[type=email],input[type=tel],input[type=date],input[type=number],select,textarea{
+    width:100%; padding:9px 10px; border:1px solid var(--line); background:var(--paper);
+    font-family:'IBM Plex Sans',sans-serif; font-size:14px; color:var(--ink);
+  }
+  input:focus,select:focus,textarea:focus{ outline:2px solid var(--sun); outline-offset:1px; }
+  fieldset{ border:1px solid var(--line); padding:14px; margin:0 0 18px 0; }
+  legend{ font-family:'Anton',sans-serif; font-size:15px; padding:0 8px; color:var(--ink); }
+
+  .choicerow{ display:flex; flex-wrap:wrap; gap:8px; }
+  .choicerow label.chip{
+    display:flex; align-items:center; gap:6px; border:1px solid var(--line); padding:7px 12px;
+    text-transform:none; font-weight:500; font-size:13.5px; cursor:pointer; color:var(--ink);
+  }
+  .choicerow input[type=radio]{ margin:0; }
+
+  button.btn{
+    background:var(--ink); color:var(--sun); border:none; padding:11px 20px;
+    font-weight:700; font-size:13.5px; letter-spacing:0.02em; cursor:pointer;
+  }
+  button.btn:hover{ background:var(--ink-2); }
+  button.btn.secondary{ background:none; color:var(--ink); border:1px solid var(--ink); }
+  button.btn.danger{ background:var(--ember); color:#fff; }
+  button.btn.small{ padding:6px 12px; font-size:12px; }
+  button.btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  table.data{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.data th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; color:var(--ash); border-bottom:2px solid var(--ink); padding:8px 8px; }
+  table.data td{ padding:9px 8px; border-bottom:1px solid var(--line); }
+  table.data tr:hover td{ background:var(--paper); }
+  .status-tag{ display:inline-block; padding:2px 8px; font-size:11px; font-weight:700; text-transform:uppercase; }
+  .status-Pending{ background:#F1E4B0; color:#6B5A00; }
+  .status-Approved{ background:#DCEEE2; color:var(--pitch); }
+  .status-Rejected{ background:#F3D9D6; color:var(--ember); }
+
+  .playerrow{ display:grid; grid-template-columns:2fr 1fr 1.2fr 1fr auto; gap:8px; margin-bottom:8px; align-items:center; }
+  @media(max-width:640px){ .playerrow{ grid-template-columns:1fr; } }
+
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--ink); color:var(--sun); padding:12px 22px; font-weight:600; font-size:13.5px;
+    z-index:100; box-shadow:0 4px 16px rgba(0,0,0,0.25);
+  }
+  .empty{ color:var(--ash); font-size:13.5px; padding:20px 0; text-align:center; border:1px dashed var(--line); }
+  .filters{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+  .filters select{ width:auto; min-width:150px; }
+
+  .modal-overlay{ position:fixed; inset:0; background:rgba(22,20,15,0.6); display:flex; align-items:flex-start; justify-content:center; padding:30px 16px; overflow-y:auto; z-index:50; }
+  .modal{ background:#fff; max-width:720px; width:100%; padding:26px; margin-bottom:40px; }
+  .modal h3{ margin-top:0; font-size:20px; }
+  .modal .close{ float:right; background:none; border:none; font-size:20px; cursor:pointer; color:var(--ash); }
+  .kv{ display:grid; grid-template-columns:150px 1fr; gap:6px 12px; font-size:13.5px; margin-bottom:4px; }
+  .kv b{ color:var(--ash); font-weight:600; font-size:11px; text-transform:uppercase; }
+  .section-title{ font-family:'Anton',sans-serif; font-size:14px; margin:18px 0 8px 0; color:var(--ash); }
+
+  .pool-card{ border:1px solid var(--line); padding:16px; margin-bottom:14px; }
+  .pool-card h3{ font-size:16px; margin:0 0 2px 0; }
+  .pool-card .meta{ color:var(--ash); font-size:12.5px; margin-bottom:10px; }
+  .rank1{ color:var(--pitch); font-weight:700; }
+  .colorswatch{ display:inline-block; width:10px; height:10px; border:1px solid var(--ink); vertical-align:middle; margin-right:6px; }
+  .note{ background:var(--paper-2); border-left:3px solid var(--sun); padding:10px 14px; font-size:13px; color:var(--ink); margin-bottom:16px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <h1>NCD Games 2026</h1>
+      <span class="sub">Competition Manager</span>
+    </div>
+    <div class="dates">10 weeks · <b>10 Sept – 13 Nov 2026</b><br>Thursdays &amp; Fridays</div>
+  </div>
+  <nav class="tabs" id="tabs"></nav>
+</header>
+
+<main id="app"></main>
+<div id="toast-root"></div>
+
+<script>
+/* ---------------- Config ---------------- */
+const CODES = ["Rugby League","Rugby 7s","Touch Footy","Volleyball","Basketball","Soccer","Netball"];
+const CATEGORIES = ["Men","Women"];
+const ELECTORATES = ["Moresby North-East","Moresby North-West","Moresby South"];
+const POSITIONS_HINT = "e.g. Winger, Centre, Forward";
+const MAX_PLAYERS = 25;
+
+const TABS = [
+  {id:"register", label:"Register Team"},
+  {id:"directory", label:"Team Directory"},
+  {id:"fixtures", label:"Fixtures"},
+  {id:"standings", label:"Standings"},
+  {id:"cup", label:"Governor's Cup"},
+];
+
+/* ---------------- State ---------------- */
+let state = {
+  tab: "register",
+  teams: [],
+  fixtures: [],
+  loading: true,
+  formPlayers: [],
+  detailTeamId: null,
+  fixturesPool: null,
+  standingsPool: null,
+  dirFilters: { code:"", category:"", electorate:"", status:"" }
+};
+
+function poolKeyOf(t){ return `${t.sportingCode}||${t.category}||${t.electorate}`; }
+function poolLabel(key){ const [c,cat,e] = key.split("||"); return `${c} · ${cat} · ${e}`; }
+function newId(prefix){ return prefix + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function showToast(msg){
+  const root = document.getElementById("toast-root");
+  root.innerHTML = `<div class="toast">${msg}</div>`;
+  setTimeout(()=>{ if(root.innerHTML.includes(msg)) root.innerHTML=""; }, 2800);
+}
+
+/* ---------------- Storage ---------------- */
+async function loadAll(){
+  state.loading = true; render();
+  try{
+    const teamKeys = await window.storage.list("team:", true);
+    const teams = [];
+    if(teamKeys && teamKeys.keys){
+      for(const k of teamKeys.keys){
+        try{
+          const r = await window.storage.get(k, true);
+          if(r && r.value) teams.push(JSON.parse(r.value));
+        }catch(e){ /* skip unreadable key */ }
+      }
+    }
+    const fixKeys = await window.storage.list("fixture:", true);
+    const fixtures = [];
+    if(fixKeys && fixKeys.keys){
+      for(const k of fixKeys.keys){
+        try{
+          const r = await window.storage.get(k, true);
+          if(r && r.value) fixtures.push(JSON.parse(r.value));
+        }catch(e){}
+      }
+    }
+    state.teams = teams.sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
+    state.fixtures = fixtures;
+  }catch(e){
+    showToast("Could not load data — check connection and reload.");
+  }
+  state.loading = false;
+  render();
+}
+
+async function saveTeam(team){
+  try{
+    const r = await window.storage.set("team:"+team.id, JSON.stringify(team), true);
+    if(!r) throw new Error("no result");
+    return true;
+  }catch(e){
+    showToast("Save failed — please try again.");
+    return false;
+  }
+}
+
+async function saveFixture(fx){
+  try{
+    await window.storage.set("fixture:"+fx.id, JSON.stringify(fx), true);
+    return true;
+  }catch(e){ showToast("Could not save score."); return false; }
+}
+
+async function deleteFixture(id){
+  try{ await window.storage.delete("fixture:"+id, true); }catch(e){}
+}
+
+/* ---------------- Render root ---------------- */
+function renderTabsBar(){
+  const nav = document.getElementById("tabs");
+  nav.innerHTML = TABS.map(t=>`<button class="${state.tab===t.id?'active':''}" onclick="setTab('${t.id}')">${t.label}</button>`).join("");
+}
+function setTab(id){ state.tab = id; state.detailTeamId=null; render(); }
+window.setTab = setTab;
+
+function render(){
+  renderTabsBar();
+  const app = document.getElementById("app");
+  if(state.loading){ app.innerHTML = `<div class="empty">Loading competition data…</div>`; return; }
+  if(state.tab==="register") app.innerHTML = renderRegister();
+  else if(state.tab==="directory") app.innerHTML = renderDirectory();
+  else if(state.tab==="fixtures") app.innerHTML = renderFixtures();
+  else if(state.tab==="standings") app.innerHTML = renderStandings();
+  else if(state.tab==="cup") app.innerHTML = renderCup();
+  attachHandlers();
+}
+
+/* ================= REGISTER ================= */
+function renderRegister(){
+  return `
+  <div class="panel">
+    <h2>Team Registration</h2>
+    <p class="desc">One form per team. Submit a separate form for the Men's and Women's team in the same code. Registration fee K500 covers 1 male + 1 female team per code, paid at the NCDC Sports Office, City Hall.</p>
+
+    <form id="regForm">
+      <fieldset>
+        <legend>A. Team Information</legend>
+        <div class="field">
+          <label>Sporting Code</label>
+          <div class="choicerow">${CODES.map(c=>`<label class="chip"><input type="radio" name="sportingCode" value="${c}" required>${c}</label>`).join("")}</div>
+        </div>
+        <div class="field">
+          <label>Category</label>
+          <div class="choicerow">${CATEGORIES.map(c=>`<label class="chip"><input type="radio" name="category" value="${c}" required>${c}</label>`).join("")}</div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Electorate</label>
+            <select name="electorate" required><option value="">Select…</option>${ELECTORATES.map(e=>`<option value="${e}">${e}</option>`).join("")}</select>
+          </div>
+          <div class="field"><label>Community / Ward / Settlement</label><input type="text" name="community" required></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Club Name</label><input type="text" name="clubName" required></div>
+          <div class="field"><label>Team Colors</label><input type="text" name="teamColors"></div>
+        </div>
+        <div class="field"><label>Team Motto / Slogan (optional)</label><input type="text" name="motto"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>B. Contact Person (Team Manager)</legend>
+        <div class="grid2">
+          <div class="field"><label>Given Name</label><input type="text" name="mgrGiven" required></div>
+          <div class="field"><label>Surname</label><input type="text" name="mgrSurname" required></div>
+        </div>
+        <div class="field"><label>Gender</label>
+          <div class="choicerow">
+            <label class="chip"><input type="radio" name="mgrGender" value="Male" required>Male</label>
+            <label class="chip"><input type="radio" name="mgrGender" value="Female">Female</label>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Phone Number</label><input type="tel" name="mgrPhone" required></div>
+          <div class="field"><label>Email Address</label><input type="email" name="mgrEmail"></div>
+        </div>
+        <div class="field"><label>Postal / Residential Address</label><input type="text" name="mgrAddress"></div>
+        <div class="field"><label>Occupation</label><input type="text" name="mgrOccupation"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>C. Captain Details</legend>
+        <div class="grid2">
+          <div class="field"><label>Given Name</label><input type="text" name="capGiven" required></div>
+          <div class="field"><label>Surname</label><input type="text" name="capSurname" required></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Phone Number</label><input type="tel" name="capPhone" required></div>
+          <div class="field"><label>Email Address</label><input type="email" name="capEmail"></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>D. Player Summary Sheet (max ${MAX_PLAYERS})</legend>
+        <div id="playerRows">${renderPlayerRows()}</div>
+        <button type="button" class="btn secondary small" onclick="addPlayerRow()">+ Add player</button>
+        <p class="desc" style="margin-top:10px;">Total registered: <span id="playerCount">${state.formPlayers.length}</span></p>
+      </fieldset>
+
+      <fieldset>
+        <legend>E. Officials &amp; Support Staff</legend>
+        ${["Coach","Assistant Coach","Trainer","Team Doctor"].map(role=>`
+          <div class="grid2">
+            <div class="field"><label>${role} — Name</label><input type="text" name="off_${role.replace(/\\s/g,'')}_name"></div>
+            <div class="field"><label>${role} — Phone</label><input type="tel" name="off_${role.replace(/\\s/g,'')}_phone"></div>
+          </div>`).join("")}
+      </fieldset>
+
+      <button type="submit" class="btn">Submit Registration</button>
+    </form>
+  </div>`;
+}
+
+function renderPlayerRows(){
+  if(state.formPlayers.length===0){
+    return `<div class="empty">No players added yet.</div>`;
+  }
+  return state.formPlayers.map((p,i)=>`
+    <div class="playerrow">
+      <input type="text" placeholder="Full name" value="${p.name||''}" oninput="updatePlayer(${i},'name',this.value)">
+      <input type="date" value="${p.dob||''}" oninput="updatePlayer(${i},'dob',this.value)">
+      <input type="tel" placeholder="Contact #" value="${p.contact||''}" oninput="updatePlayer(${i},'contact',this.value)">
+      <input type="text" placeholder="${POSITIONS_HINT}" value="${p.position||''}" oninput="updatePlayer(${i},'position',this.value)">
+      <button type="button" class="btn danger small" onclick="removePlayerRow(${i})">Remove</button>
+    </div>`).join("");
+}
+function addPlayerRow(){
+  if(state.formPlayers.length>=MAX_PLAYERS){ showToast(`Maximum ${MAX_PLAYERS} players.`); return; }
+  state.formPlayers.push({name:"",dob:"",contact:"",position:""});
+  document.getElementById("playerRows").innerHTML = renderPlayerRows();
+  document.getElementById("playerCount").textContent = state.formPlayers.length;
+}
+function updatePlayer(i,field,val){ state.formPlayers[i][field]=val; }
+function removePlayerRow(i){
+  state.formPlayers.splice(i,1);
+  document.getElementById("playerRows").innerHTML = renderPlayerRows();
+  document.getElementById("playerCount").textContent = state.formPlayers.length;
+}
+window.addPlayerRow = addPlayerRow;
+window.updatePlayer = updatePlayer;
+window.removePlayerRow = removePlayerRow;
+
+async function handleRegisterSubmit(ev){
+  ev.preventDefault();
+  const f = ev.target;
+  const fd = new FormData(f);
+  const get = (k)=> (fd.get(k)||"").toString().trim();
+
+  const team = {
+    id: newId("team"),
+    createdAt: Date.now(),
+    sportingCode: get("sportingCode"),
+    category: get("category"),
+    electorate: get("electorate"),
+    community: get("community"),
+    clubName: get("clubName"),
+    teamColors: get("teamColors"),
+    motto: get("motto"),
+    manager: {
+      givenName: get("mgrGiven"), surname: get("mgrSurname"), gender: get("mgrGender"),
+      phone: get("mgrPhone"), email: get("mgrEmail"), address: get("mgrAddress"), occupation: get("mgrOccupation")
+    },
+    captain: {
+      givenName: get("capGiven"), surname: get("capSurname"), phone: get("capPhone"), email: get("capEmail")
+    },
+    players: state.formPlayers.filter(p=>p.name && p.name.trim()!==""),
+    officials: {
+      coach: {name:get("off_Coach_name"), phone:get("off_Coach_phone")},
+      assistantCoach: {name:get("off_AssistantCoach_name"), phone:get("off_AssistantCoach_phone")},
+      trainer: {name:get("off_Trainer_name"), phone:get("off_Trainer_phone")},
+      doctor: {name:get("off_TeamDoctor_name"), phone:get("off_TeamDoctor_phone")}
+    },
+    payment: { paid:false, amount:"", receiptNumber:"" },
+    approval: { status:"Pending", comments:"", poolZone:"", teamIdNumber:"" }
+  };
+
+  if(!team.sportingCode || !team.category || !team.electorate){
+    showToast("Please select sporting code, category and electorate."); return;
+  }
+
+  const btn = f.querySelector("button[type=submit]");
+  btn.disabled = true; btn.textContent = "Submitting…";
+  const ok = await saveTeam(team);
+  btn.disabled = false; btn.textContent = "Submit Registration";
+
+  if(ok){
+    state.teams.unshift(team);
+    state.formPlayers = [];
+    showToast(`Team "${team.clubName}" registered — pending approval.`);
+    f.reset();
+    render();
+  }
+}
+
+/* ================= DIRECTORY (admin) ================= */
+function renderDirectory(){
+  const f = state.dirFilters;
+  let list = state.teams.filter(t=>
+    (!f.code || t.sportingCode===f.code) &&
+    (!f.category || t.category===f.category) &&
+    (!f.electorate || t.electorate===f.electorate) &&
+    (!f.status || t.approval.status===f.status)
+  );
+
+  return `
+  <div class="panel">
+    <h2>Team Directory</h2>
+    <p class="desc">Review registrations, confirm payment, approve teams and assign pool/zone + team ID.</p>
+    <div class="note">Shared data: everyone who opens this app sees and can edit the same team list.</div>
+    <div class="filters">
+      <select onchange="setDirFilter('code',this.value)"><option value="">All codes</option>${CODES.map(c=>`<option ${f.code===c?'selected':''}>${c}</option>`).join("")}</select>
+      <select onchange="setDirFilter('category',this.value)"><option value="">All categories</option>${CATEGORIES.map(c=>`<option ${f.category===c?'selected':''}>${c}</option>`).join("")}</select>
+      <select onchange="setDirFilter('electorate',this.value)"><option value="">All electorates</option>${ELECTORATES.map(c=>`<option ${f.electorate===c?'selected':''}>${c}</option>`).join("")}</select>
+      <select onchange="setDirFilter('status',this.value)"><option value="">All statuses</option>${["Pending","Approved","Rejected"].map(c=>`<option ${f.status===c?'selected':''}>${c}</option>`).join("")}</select>
+    </div>
+    ${list.length===0 ? `<div class="empty">No teams match these filters.</div>` : `
+    <table class="data">
+      <thead><tr><th>Club</th><th>Code</th><th>Cat.</th><th>Electorate</th><th>Players</th><th>Payment</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        ${list.map(t=>`
+          <tr>
+            <td><b>${escapeHtml(t.clubName)}</b><br><span class="mono" style="color:var(--ash);font-size:11px;">${escapeHtml(t.community)}</span></td>
+            <td>${t.sportingCode}</td>
+            <td>${t.category}</td>
+            <td>${t.electorate}</td>
+            <td>${t.players.length}</td>
+            <td>${t.payment.paid ? '✓ Paid' : '—'}</td>
+            <td><span class="status-tag status-${t.approval.status}">${t.approval.status}</span></td>
+            <td><button class="btn secondary small" onclick="openDetail('${t.id}')">View</button></td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`}
+  </div>
+  ${state.detailTeamId ? renderDetailModal() : ""}
+  `;
+}
+function setDirFilter(k,v){ state.dirFilters[k]=v; render(); }
+window.setDirFilter = setDirFilter;
+function openDetail(id){ state.detailTeamId=id; render(); }
+window.openDetail = openDetail;
+function closeDetail(){ state.detailTeamId=null; render(); }
+window.closeDetail = closeDetail;
+
+function renderDetailModal(){
+  const t = state.teams.find(x=>x.id===state.detailTeamId);
+  if(!t) return "";
+  return `
+  <div class="modal-overlay" onclick="if(event.target===this) closeDetail()">
+    <div class="modal">
+      <button class="close" onclick="closeDetail()">✕</button>
+      <h3>${escapeHtml(t.clubName)}</h3>
+      <div class="kv"><b>Code</b><span>${t.sportingCode}</span></div>
+      <div class="kv"><b>Category</b><span>${t.category}</span></div>
+      <div class="kv"><b>Electorate</b><span>${t.electorate}</span></div>
+      <div class="kv"><b>Community</b><span>${escapeHtml(t.community)}</span></div>
+      <div class="kv"><b>Colors</b><span>${escapeHtml(t.teamColors||"—")}</span></div>
+      <div class="kv"><b>Motto</b><span>${escapeHtml(t.motto||"—")}</span></div>
+
+      <div class="section-title">Manager</div>
+      <div class="kv"><b>Name</b><span>${escapeHtml(t.manager.givenName)} ${escapeHtml(t.manager.surname)}</span></div>
+      <div class="kv"><b>Phone</b><span>${escapeHtml(t.manager.phone)}</span></div>
+      <div class="kv"><b>Email</b><span>${escapeHtml(t.manager.email||"—")}</span></div>
+
+      <div class="section-title">Captain</div>
+      <div class="kv"><b>Name</b><span>${escapeHtml(t.captain.givenName)} ${escapeHtml(t.captain.surname)}</span></div>
+      <div class="kv"><b>Phone</b><span>${escapeHtml(t.captain.phone)}</span></div>
+
+      <div class="section-title">Players (${t.players.length})</div>
+      ${t.players.length===0? `<div class="empty">None listed</div>` :
+        `<table class="data"><thead><tr><th>Name</th><th>DoB</th><th>Contact</th><th>Position</th></tr></thead><tbody>
+          ${t.players.map(p=>`<tr><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.dob||"—")}</td><td>${escapeHtml(p.contact||"—")}</td><td>${escapeHtml(p.position||"—")}</td></tr>`).join("")}
+        </tbody></table>`}
+
+      <div class="section-title">Officials</div>
+      <div class="kv"><b>Coach</b><span>${escapeHtml(t.officials.coach.name||"—")} ${escapeHtml(t.officials.coach.phone||"")}</span></div>
+      <div class="kv"><b>Asst. Coach</b><span>${escapeHtml(t.officials.assistantCoach.name||"—")} ${escapeHtml(t.officials.assistantCoach.phone||"")}</span></div>
+      <div class="kv"><b>Trainer</b><span>${escapeHtml(t.officials.trainer.name||"—")} ${escapeHtml(t.officials.trainer.phone||"")}</span></div>
+      <div class="kv"><b>Doctor</b><span>${escapeHtml(t.officials.doctor.name||"—")} ${escapeHtml(t.officials.doctor.phone||"")}</span></div>
+
+      <div class="section-title">Office Use — Payment &amp; Approval</div>
+      <div class="grid2">
+        <div class="field"><label>Payment Received</label>
+          <select id="detPaid"><option value="no" ${!t.payment.paid?'selected':''}>No</option><option value="yes" ${t.payment.paid?'selected':''}>Yes</option></select>
+        </div>
+        <div class="field"><label>Amount (K)</label><input type="text" id="detAmount" value="${escapeHtml(t.payment.amount||"")}"></div>
+      </div>
+      <div class="field"><label>Receipt Number</label><input type="text" id="detReceipt" value="${escapeHtml(t.payment.receiptNumber||"")}"></div>
+      <div class="grid2">
+        <div class="field"><label>Approval Status</label>
+          <select id="detStatus">${["Pending","Approved","Rejected"].map(s=>`<option ${t.approval.status===s?'selected':''}>${s}</option>`).join("")}</select>
+        </div>
+        <div class="field"><label>Team ID Number</label><input type="text" id="detTeamId" value="${escapeHtml(t.approval.teamIdNumber||"")}"></div>
+      </div>
+      <div class="field"><label>Pool / Zone</label><input type="text" id="detPool" value="${escapeHtml(t.approval.poolZone||"")}" placeholder="Auto: ${poolLabel(poolKeyOf(t))}"></div>
+      <div class="field"><label>Comments</label><textarea id="detComments" rows="2">${escapeHtml(t.approval.comments||"")}</textarea></div>
+
+      <button class="btn" onclick="saveDetail('${t.id}')">Save Changes</button>
+    </div>
+  </div>`;
+}
+async function saveDetail(id){
+  const t = state.teams.find(x=>x.id===id);
+  if(!t) return;
+  t.payment.paid = document.getElementById("detPaid").value==="yes";
+  t.payment.amount = document.getElementById("detAmount").value;
+  t.payment.receiptNumber = document.getElementById("detReceipt").value;
+  t.approval.status = document.getElementById("detStatus").value;
+  t.approval.teamIdNumber = document.getElementById("detTeamId").value;
+  t.approval.poolZone = document.getElementById("detPool").value;
+  t.approval.comments = document.getElementById("detComments").value;
+  const ok = await saveTeam(t);
+  if(ok){ showToast("Team updated."); closeDetail(); }
+}
+window.saveDetail = saveDetail;
+
+/* ================= FIXTURES ================= */
+function getPools(){
+  const map = {};
+  state.teams.filter(t=>t.approval.status==="Approved").forEach(t=>{
+    const k = poolKeyOf(t);
+    if(!map[k]) map[k]=[];
+    map[k].push(t);
+  });
+  return map;
+}
+function getMatchDays(){
+  const days=[];
+  let d = new Date(2026,8,10); // Sept 10 2026
+  const end = new Date(2026,10,13); // Nov 13 2026
+  while(d<=end){
+    const wd = d.getDay();
+    if(wd===4||wd===5) days.push(new Date(d));
+    d.setDate(d.getDate()+1);
+  }
+  return days;
+}
+function fmtDate(d){
+  return d.toLocaleDateString('en-GB',{weekday:'short', day:'numeric', month:'short', year:'numeric'});
+}
+function generateRoundRobin(ids){
+  let arr = [...ids];
+  if(arr.length%2!==0) arr.push(null);
+  const n = arr.length;
+  const rounds = [];
+  for(let r=0;r<n-1;r++){
+    const matches=[];
+    for(let i=0;i<n/2;i++){
+      const a=arr[i], b=arr[n-1-i];
+      if(a!==null && b!==null) matches.push([a,b]);
+    }
+    rounds.push(matches);
+    const fixed=arr[0]; const rest=arr.slice(1); rest.unshift(rest.pop()); arr=[fixed,...rest];
+  }
+  return rounds;
+}
+
+function renderFixtures(){
+  const pools = getPools();
+  const poolKeys = Object.keys(pools);
+  const sel = state.fixturesPool || poolKeys[0] || null;
+
+  let body = "";
+  if(poolKeys.length===0){
+    body = `<div class="empty">No approved teams yet. Approve teams in the Team Directory first, then generate fixtures here.</div>`;
+  } else {
+    const teams = pools[sel] || [];
+    const existing = state.fixtures.filter(f=>f.poolKey===sel);
+    body = `
+      <div class="filters">
+        <select onchange="setFixturesPool(this.value)">
+          ${poolKeys.map(k=>`<option value="${k}" ${k===sel?'selected':''}>${poolLabel(k)} (${pools[k].length} teams)</option>`).join("")}
+        </select>
+        ${teams.length<2 ? `<span class="desc" style="align-self:center;">Need at least 2 approved teams in this pool.</span>` :
+          existing.length>0 ? `<button class="btn danger small" onclick="regenerateFixtures('${sel}')">Regenerate Schedule</button>` :
+          `<button class="btn small" onclick="generateFixturesForPool('${sel}')">Generate Schedule</button>`}
+      </div>
+      ${renderFixtureList(sel)}
+    `;
+  }
+
+  return `<div class="panel">
+    <h2>Fixtures</h2>
+    <p class="desc">Round-robin schedule generated per pool (code · category · electorate) across the Thursday/Friday competition window.</p>
+    ${body}
+  </div>`;
+}
+function setFixturesPool(k){ state.fixturesPool=k; render(); }
+window.setFixturesPool = setFixturesPool;
+
+function renderFixtureList(poolKey){
+  const fx = state.fixtures.filter(f=>f.poolKey===poolKey).sort((a,b)=> a.round-b.round);
+  if(fx.length===0) return `<div class="empty">No fixtures generated yet for this pool.</div>`;
+  const byRound = {};
+  fx.forEach(f=>{ (byRound[f.round]=byRound[f.round]||[]).push(f); });
+  return Object.keys(byRound).sort((a,b)=>a-b).map(r=>{
+    const matches = byRound[r];
+    return `<div style="margin-bottom:18px;">
+      <div class="section-title">Round ${Number(r)+1} — ${matches[0].dateLabel}</div>
+      <table class="data">
+        <thead><tr><th>Home</th><th>Score</th><th>Away</th><th>Score</th><th></th></tr></thead>
+        <tbody>
+        ${matches.map(f=>`
+          <tr>
+            <td>${escapeHtml(f.teamAName)}</td>
+            <td><input type="number" min="0" style="width:60px;" value="${f.scoreA ?? ''}" onchange="setScore('${f.id}','scoreA',this.value)"></td>
+            <td>${escapeHtml(f.teamBName)}</td>
+            <td><input type="number" min="0" style="width:60px;" value="${f.scoreB ?? ''}" onchange="setScore('${f.id}','scoreB',this.value)"></td>
+            <td>${f.played ? '<span class="status-tag status-Approved">Played</span>' : '<span class="status-tag status-Pending">Scheduled</span>'}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+  }).join("");
+}
+
+async function generateFixturesForPool(poolKey){
+  const pools = getPools();
+  const teams = pools[poolKey];
+  if(!teams || teams.length<2){ showToast("Need at least 2 approved teams."); return; }
+  const rounds = generateRoundRobin(teams.map(t=>t.id));
+  const matchDays = getMatchDays();
+  const newFixtures = [];
+  rounds.forEach((matches, rIdx)=>{
+    const date = matchDays[rIdx % matchDays.length];
+    matches.forEach(([aId,bId])=>{
+      const a = teams.find(t=>t.id===aId), b = teams.find(t=>t.id===bId);
+      newFixtures.push({
+        id: newId("fx"),
+        poolKey, round: rIdx,
+        date: date.toISOString(),
+        dateLabel: fmtDate(date),
+        teamAId:aId, teamAName:a.clubName,
+        teamBId:bId, teamBName:b.clubName,
+        scoreA:null, scoreB:null, played:false
+      });
+    });
+  });
+  for(const f of newFixtures){ await saveFixture(f); }
+  state.fixtures = state.fixtures.filter(f=>f.poolKey!==poolKey).concat(newFixtures);
+  showToast(`Schedule generated: ${newFixtures.length} fixtures across ${rounds.length} rounds.`);
+  render();
+}
+window.generateFixturesForPool = generateFixturesForPool;
+
+async function regenerateFixtures(poolKey){
+  if(!confirm("This will clear existing fixtures and scores for this pool. Continue?")) return;
+  const old = state.fixtures.filter(f=>f.poolKey===poolKey);
+  for(const f of old){ await deleteFixture(f.id); }
+  state.fixtures = state.fixtures.filter(f=>f.poolKey!==poolKey);
+  await generateFixturesForPool(poolKey);
+}
+window.regenerateFixtures = regenerateFixtures;
+
+async function setScore(fxId, field, val){
+  const f = state.fixtures.find(x=>x.id===fxId);
+  if(!f) return;
+  f[field] = val===""? null : Number(val);
+  f.played = (f.scoreA!==null && f.scoreB!==null);
+  await saveFixture(f);
+  showToast("Score saved.");
+}
+window.setScore = setScore;
+
+/* ================= STANDINGS ================= */
+function computeStandings(poolKey){
+  const pools = getPools();
+  const teams = pools[poolKey] || [];
+  const table = {};
+  teams.forEach(t=>{ table[t.id] = {id:t.id, name:t.clubName, played:0,won:0,drawn:0,lost:0,for:0,against:0,points:0}; });
+  state.fixtures.filter(f=>f.poolKey===poolKey && f.played).forEach(f=>{
+    const a = table[f.teamAId], b = table[f.teamBId];
+    if(!a || !b) return;
+    a.played++; b.played++;
+    a.for += f.scoreA; a.against += f.scoreB;
+    b.for += f.scoreB; b.against += f.scoreA;
+    if(f.scoreA > f.scoreB){ a.won++; a.points+=3; b.lost++; }
+    else if(f.scoreA < f.scoreB){ b.won++; b.points+=3; a.lost++; }
+    else { a.drawn++; b.drawn++; a.points+=1; b.points+=1; }
+  });
+  return Object.values(table).sort((x,y)=> y.points-x.points || (y.for-y.against)-(x.for-x.against) || y.for-x.for);
+}
+
+function renderStandings(){
+  const pools = getPools();
+  const poolKeys = Object.keys(pools);
+  if(poolKeys.length===0) return `<div class="panel"><h2>Standings</h2><div class="empty">No approved teams yet.</div></div>`;
+  const sel = state.standingsPool || poolKeys[0];
+  const rows = computeStandings(sel);
+  return `<div class="panel">
+    <h2>Standings</h2>
+    <p class="desc">Win = 3 pts, draw = 1 pt, loss = 0. Ranked by points, then goal/point difference.</p>
+    <div class="filters">
+      <select onchange="setStandingsPool(this.value)">${poolKeys.map(k=>`<option value="${k}" ${k===sel?'selected':''}>${poolLabel(k)}</option>`).join("")}</select>
+    </div>
+    <table class="data">
+      <thead><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>F</th><th>A</th><th>Diff</th><th>Pts</th></tr></thead>
+      <tbody>
+        ${rows.map((r,i)=>`
+          <tr>
+            <td class="${i===0?'rank1':''}">${i+1}</td>
+            <td>${escapeHtml(r.name)}</td>
+            <td>${r.played}</td><td>${r.won}</td><td>${r.drawn}</td><td>${r.lost}</td>
+            <td>${r.for}</td><td>${r.against}</td><td>${r.for-r.against}</td>
+            <td><b>${r.points}</b></td>
+          </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>`;
+}
+function setStandingsPool(k){ state.standingsPool=k; render(); }
+window.setStandingsPool = setStandingsPool;
+
+/* ================= GOVERNOR'S CUP ================= */
+function renderCup(){
+  const pools = getPools();
+  const poolKeys = Object.keys(pools);
+  if(poolKeys.length===0) return `<div class="panel"><h2>Governor's Cup Qualifiers</h2><div class="empty">No approved teams yet.</div></div>`;
+
+  const cards = poolKeys.map(k=>{
+    const rows = computeStandings(k).slice(0,4);
+    return `<div class="pool-card">
+      <h3>${poolLabel(k)}</h3>
+      <div class="meta">Top 4 advance to the NCD Governor's Cup (15 Dec 2026 – 15 Jan 2027)</div>
+      ${rows.length===0 ? `<div class="empty">No results recorded yet.</div>` :
+        `<table class="data"><thead><tr><th>#</th><th>Team</th><th>Pts</th></tr></thead><tbody>
+          ${rows.map((r,i)=>`<tr><td class="${i===0?'rank1':''}">${i+1}</td><td>${escapeHtml(r.name)}</td><td>${r.points}</td></tr>`).join("")}
+        </tbody></table>`}
+    </div>`;
+  }).join("");
+
+  return `<div class="panel">
+    <h2>Governor's Cup Qualifiers</h2>
+    <p class="desc">Current top 4 per pool based on standings so far. Final qualifiers are confirmed once each pool completes its round-robin.</p>
+    ${cards}
+  </div>`;
+}
+
+/* ---------------- Utilities ---------------- */
+function escapeHtml(s){
+  if(s===undefined || s===null) return "";
+  return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function attachHandlers(){
+  const rf = document.getElementById("regForm");
+  if(rf) rf.addEventListener("submit", handleRegisterSubmit);
+}
+
+/* ---------------- Init ---------------- */
+loadAll();
+</script>
+</body>
+</html>
