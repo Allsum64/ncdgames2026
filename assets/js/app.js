@@ -106,6 +106,16 @@ function renderAuthBar(){
 }
 
 function render(){
+  // The login modal is appended straight to <body> (so it can float above
+  // everything, including while #app is showing a loading state), which
+  // means it survives across #app.innerHTML replacements below and must be
+  // removed explicitly here every render pass — otherwise a closed/replaced
+  // modal instance is left sitting in the DOM, visually stuck open forever
+  // even once state.session is actually set.
+  const existingOverlay = document.getElementById("loginOverlay");
+  if(existingOverlay) existingOverlay.remove();
+  if(state.loginOpen) document.body.insertAdjacentHTML("beforeend", renderLoginModal());
+
   if(!CONFIGURED){
     document.getElementById("app").innerHTML = `<div class="panel"><h2>Not connected yet</h2>
       <p class="desc">This app needs a Supabase project. Open <span class="mono">assets/js/config.js</span> and set
@@ -126,7 +136,6 @@ function render(){
   else if(state.tab==="standings") app.innerHTML = renderStandings();
   else if(state.tab==="cup")       app.innerHTML = renderCup();
   attachHandlers();
-  if(state.loginOpen) document.body.insertAdjacentHTML("beforeend", renderLoginModal());
 }
 
 /* ================= AUTH ================= */
