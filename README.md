@@ -102,6 +102,24 @@ domains:
    `main` / `(root)` → Save.
 2. Live at `https://<username>.github.io/<repo>/` within a few minutes.
 
+## Troubleshooting
+
+**"new row violates row-level security policy for table ..."** when
+submitting the registration form — `schema.sql` wasn't fully applied, or a
+stray policy exists on top of it (e.g. one added by hand through the
+dashboard's "Add RLS Policy" wizard while poking around — a *restrictive*
+policy from that wizard silently overrides the permissive ones this file
+creates). Fix: re-run the full current `supabase/schema.sql` — the RLS
+section drops *every* existing policy on `teams`/`players`/`fixtures`
+before recreating the canonical set, regardless of name, so it's safe to
+re-run any time this happens. Grab a fresh copy rather than reusing an old
+paste, in case the file has changed since you last ran it.
+
+**RPC function errors ("Could not find the function...")** — same fix,
+re-run `schema.sql`; it's idempotent throughout (`if not exists` /
+`create or replace` / dynamic policy drop), so re-running never touches
+existing data.
+
 ## Access model
 
 - **Public (no login)** can submit the registration form (creates a `teams`

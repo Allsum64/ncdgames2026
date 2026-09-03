@@ -188,8 +188,12 @@ as $$
   select 'RCT-2026-' || lpad(nextval('receipt_seq')::text, 4, '0');
 $$;
 
-revoke all on function public.next_invoice_number() from public;
-revoke all on function public.next_receipt_number() from public;
+-- Revoke from "public" (the default-privileges pseudo-role) AND from
+-- "anon" explicitly — Supabase projects can grant anon its own EXECUTE
+-- on new functions independently of the public pseudo-role, so revoking
+-- only from public isn't enough to keep this admin-only.
+revoke all on function public.next_invoice_number() from public, anon;
+revoke all on function public.next_receipt_number() from public, anon;
 grant execute on function public.next_invoice_number() to authenticated;
 grant execute on function public.next_receipt_number() to authenticated;
 
@@ -210,76 +214,81 @@ alter table public.teams    enable row level security;
 alter table public.players  enable row level security;
 alter table public.fixtures enable row level security;
 
+-- Wipe every existing policy on these three tables first, whatever its name —
+-- a stray policy added by hand (e.g. via the dashboard's "Add RLS Policy"
+-- wizard) can silently override the permissive ones below, and a plain
+-- "drop policy if exists <exact name>" can't clean up a policy under a
+-- different name. This makes re-running this file self-healing.
+do $$
+declare
+  pol record;
+begin
+  for pol in
+    select tablename, policyname from pg_policies
+    where schemaname = 'public' and tablename in ('teams','players','fixtures')
+  loop
+    execute format('drop policy %I on public.%I', pol.policyname, pol.tablename);
+  end loop;
+end $$;
+
 -- Teams
-drop policy if exists teams_public_insert on public.teams;
 create policy teams_public_insert
   on public.teams for insert
   to anon, authenticated
   with check (true);
 
-drop policy if exists teams_admin_select on public.teams;
 create policy teams_admin_select
   on public.teams for select
   to authenticated
   using (true);
 
-drop policy if exists teams_admin_update on public.teams;
 create policy teams_admin_update
   on public.teams for update
   to authenticated
   using (true) with check (true);
 
-drop policy if exists teams_admin_delete on public.teams;
 create policy teams_admin_delete
   on public.teams for delete
   to authenticated
   using (true);
 
 -- Players
-drop policy if exists players_public_insert on public.players;
 create policy players_public_insert
   on public.players for insert
   to anon, authenticated
   with check (true);
 
-drop policy if exists players_admin_select on public.players;
 create policy players_admin_select
   on public.players for select
   to authenticated
   using (true);
 
-drop policy if exists players_admin_update on public.players;
 create policy players_admin_update
   on public.players for update
   to authenticated
   using (true) with check (true);
 
-drop policy if exists players_admin_delete on public.players;
 create policy players_admin_delete
   on public.players for delete
   to authenticated
   using (true);
 
 -- Fixtures
-drop policy if exists fixtures_public_select on public.fixtures;
 create policy fixtures_public_select
   on public.fixtures for select
   to anon, authenticated
   using (true);
 
-drop policy if exists fixtures_admin_insert on public.fixtures;
 create policy fixtures_admin_insert
   on public.fixtures for insert
   to authenticated
   with check (true);
 
-drop policy if exists fixtures_admin_update on public.fixtures;
 create policy fixtures_admin_update
   on public.fixtures for update
   to authenticated
   using (true) with check (true);
 
-drop policy if exists fixtures_admin_delete on public.fixtures;
 create policy fixtures_admin_delete
   on public.fixtures for delete
   to authenticated
