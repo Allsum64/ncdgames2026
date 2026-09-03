@@ -6,6 +6,6 @@
 // 4. Dashboard > Authentication > Users — add an admin account (email + password)
 //    so someone can log into the Admin area. There is no public sign-up in this app.
 window.NCD_CONFIG = {
-  SUPABASE_URL: "https://YOUR-PROJECT-REF.supabase.co",
-  SUPABASE_ANON_KEY: "YOUR-ANON-PUBLIC-KEY"
+  SUPABASE_URL: "https://ktvcvxiiqtognunchuzp.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0dmN2eGlpcXRvZ251bmNodXpwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MzM3OTQsImV4cCI6MjEwNDAwOTc5NH0.NpoRvAvGtreR9GUzzircg06XqAckBrcXXTSa6BF37Gg"
 };
