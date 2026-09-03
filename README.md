@@ -34,23 +34,73 @@ Sections A–E exactly, and the admin directory mirrors Sections F–G.
 
 ## 2. Run it locally
 
-Any static file server works, e.g.:
+Any static file server works, e.g. (pick one):
 
 ```
 npx serve .
+# or, if you have Node but not `serve`:
+node -e "require('http').createServer((q,r)=>require('fs').readFile('.'+(q.url==='/'?'/index.html':q.url),(e,d)=>e?(r.writeHead(404),r.end()):(r.writeHead(200),r.end(d)))).listen(8080)"
 ```
 
 then open the printed `localhost` URL. (Opening `index.html` directly via
 `file://` will not work — the browser blocks the Supabase client's requests
-from a `file://` origin in some browsers, so serve it over HTTP.)
+from a `file://` origin in some browsers, so serve it over HTTP.) In VS Code,
+the **Live Server** extension does the same thing with a right-click →
+"Open with Live Server" on `index.html`.
 
-## 3. Deploy on GitHub Pages
+## 3. How to test it end-to-end
 
-1. Push this repo to GitHub (see below).
-2. Repo → **Settings → Pages** → Source: `Deploy from a branch` → Branch:
+Once `config.js` has real Supabase credentials (step 1) and you have an admin
+account, run through this once to confirm everything is wired up:
+
+1. **Register tab** — fill out and submit the form as a fake team. You should
+   see a "registered — pending approval" toast. In the Supabase dashboard →
+   **Table Editor → teams**, confirm the row appeared with
+   `approval_status = Pending` and `payment_paid = false` — even if you try
+   to edit those fields in the form's dev tools, the database trigger resets
+   them, so this is the guardrail to check.
+2. **Admin Login** (top-right of the header) — sign in with the account you
+   created in Supabase → Authentication → Users.
+3. **Admin Directory tab** — your test team should now be visible (it isn't
+   visible to the public). Open it, set **Approval Status** to `Approved`,
+   click **Save Changes**, then reopen it: an **Invoice Number** should now
+   be filled in automatically, with a **Print Invoice** button next to it.
+   Click it — a new tab opens a formatted invoice and triggers the browser
+   print dialog; choose "Save as PDF" as the destination to confirm it
+   generates a clean PDF.
+4. Back in the detail panel, set **Payment Received** to `Yes`, fill in
+   amount/processed by/date, **Save Changes**, reopen it — a **Receipt
+   Number** appears with its own **Print Receipt** button. Test that too.
+5. **Fixtures tab** — with 2+ teams approved in the same sporting
+   code/category/electorate, pick that pool and click **Generate Schedule**.
+   Enter a score on one fixture and confirm it flips to "Played".
+6. **Standings tab** — switch to the same pool and confirm the played match
+   shows up in the table with the right points.
+7. **Governor's Cup tab** — confirm the top-4 card for that pool reflects the
+   same standings.
+8. Log out (top-right) and confirm the **Admin Directory** tab now shows
+   "Admin login required" instead of the team list, and that **Fixtures**
+   still shows the schedule (read-only, no score inputs) — this is the
+   public/admin split working correctly.
+
+## 4. Deploy
+
+This is a fully static site (Supabase is called directly from the browser —
+no server-side code), so either of these works equally well:
+
+**Vercel (recommended)** — get preview URLs on every push, easiest custom
+domains:
+1. [vercel.com](https://vercel.com) → **Add New → Project** → import the
+   `ncdgames2026` GitHub repo.
+2. Framework preset: **Other** (no build command, no output directory needed
+   — it's already static). Deploy.
+3. Every push to `main` auto-deploys; every other branch/PR gets its own
+   preview URL, which is handy for testing changes before they go live.
+
+**GitHub Pages** — simplest, zero third-party sign-up:
+1. Repo → **Settings → Pages** → Source: `Deploy from a branch` → Branch:
    `main` / `(root)` → Save.
-3. Your site will be live at `https://<username>.github.io/<repo>/` within a
-   few minutes.
+2. Live at `https://<username>.github.io/<repo>/` within a few minutes.
 
 ## Access model
 
@@ -78,14 +128,20 @@ assets/img/logo-transparent.png   same logo, white background keyed out
 supabase/schema.sql         tables, RLS policies, triggers — run this once
 ```
 
-## Not yet automated
+## Invoices & receipts
 
-Invoice/receipt emails on approval and payment are not wired up yet — the
-admin directory lets you record `invoice_number`/`receipt_number` manually.
-To automate them, add a [Supabase Edge Function](https://supabase.com/docs/guides/functions)
-triggered by a `teams` row update (via a Database Webhook) that generates the
-next sequential number and sends mail through a provider like Resend or
-SendGrid using `manager_email`.
+No email provider — invoices and receipts are generated as printable
+documents instead:
+
+- Setting a team's **Approval Status** to `Approved` auto-generates a
+  sequential invoice number (`INV-2026-0001`, ...) via a Postgres function
+  (`next_invoice_number()` in `schema.sql`), so numbering stays consistent
+  even with multiple admins working at once.
+- Ticking **Payment Received** auto-generates a receipt number the same way.
+- Both show a **Print Invoice** / **Print Receipt** button in the Admin
+  Directory once generated — it opens a formatted one-page document in a new
+  tab and triggers the browser's print dialog; choose **Save as PDF** to get
+  a downloadable file, or print it directly for someone paying in person.
 
 `ncd-games-manager.html` and `ncdgamesbase44-build-spec.md` are earlier
 prototypes (a no-backend browser-storage demo, and a staged-prompt spec for

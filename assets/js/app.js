@@ -446,7 +446,18 @@ function renderDetailModal(){
       <div class="kv"><b>Trainer</b><span>${escapeHtml(t.trainer_name||"—")} ${escapeHtml(t.trainer_phone||"")}</span></div>
       <div class="kv"><b>Doctor</b><span>${escapeHtml(t.doctor_name||"—")} ${escapeHtml(t.doctor_phone||"")}</span></div>
 
-      <div class="section-title">Office Use — Payment &amp; Approval</div>
+      <div class="section-title">Office Use — Approval</div>
+      <div class="grid2">
+        <div class="field"><label>Approval Status</label>
+          <select id="detStatus">${["Pending","Approved","Rejected"].map(s=>`<option ${t.approval_status===s?'selected':''}>${s}</option>`).join("")}</select>
+        </div>
+        <div class="field"><label>Team ID Number</label><input type="text" id="detTeamId" value="${escapeAttr(t.team_id_number||'')}"></div>
+      </div>
+      <div class="field"><label>Pool / Zone</label><input type="text" id="detPool" value="${escapeAttr(t.pool_zone||'')}" placeholder="Auto: ${poolLabel(poolKeyOf(t))}"></div>
+      <div class="field"><label>Comments</label><textarea id="detComments" rows="2">${escapeHtml(t.approval_comments||"")}</textarea></div>
+
+      <div class="section-title">Office Use — Payment</div>
+      <div class="note">Approving a team auto-generates its invoice number below; ticking "Payment Received" auto-generates the receipt number. Both are printable — save as PDF or hand over a physical printout, no email needed.</div>
       <div class="grid2">
         <div class="field"><label>Payment Received</label>
           <select id="detPaid"><option value="no" ${!t.payment_paid?'selected':''}>No</option><option value="yes" ${t.payment_paid?'selected':''}>Yes</option></select>
@@ -457,17 +468,16 @@ function renderDetailModal(){
         <div class="field"><label>Processed By</label><input type="text" id="detProcessedBy" value="${escapeAttr(t.payment_processed_by||'')}"></div>
         <div class="field"><label>Date Received</label><input type="date" id="detDateReceived" value="${escapeAttr(t.payment_date_received||'')}"></div>
       </div>
-      <div class="field"><label>Receipt Number</label><input type="text" id="detReceipt" value="${escapeAttr(t.receipt_number||'')}"></div>
       <div class="grid2">
-        <div class="field"><label>Approval Status</label>
-          <select id="detStatus">${["Pending","Approved","Rejected"].map(s=>`<option ${t.approval_status===s?'selected':''}>${s}</option>`).join("")}</select>
-        </div>
-        <div class="field"><label>Team ID Number</label><input type="text" id="detTeamId" value="${escapeAttr(t.team_id_number||'')}"></div>
+        <div class="field"><label>Invoice Number</label><input type="text" id="detInvoice" value="${escapeAttr(t.invoice_number||'')}" placeholder="Auto on approval"></div>
+        <div class="field"><label>Receipt Number</label><input type="text" id="detReceipt" value="${escapeAttr(t.receipt_number||'')}" placeholder="Auto on payment"></div>
       </div>
-      <div class="field"><label>Pool / Zone</label><input type="text" id="detPool" value="${escapeAttr(t.pool_zone||'')}" placeholder="Auto: ${poolLabel(poolKeyOf(t))}"></div>
-      <div class="field"><label>Comments</label><textarea id="detComments" rows="2">${escapeHtml(t.approval_comments||"")}</textarea></div>
+      <div class="filters" style="margin-bottom:0;">
+        ${t.invoice_number ? `<button class="btn secondary small" onclick="printInvoice('${t.id}')">Print Invoice</button>` : ""}
+        ${t.receipt_number ? `<button class="btn secondary small" onclick="printReceipt('${t.id}')">Print Receipt</button>` : ""}
+      </div>
 
-      <button class="btn" onclick="saveDetail('${t.id}')">Save Changes</button>
+      <button class="btn" style="margin-top:16px;" onclick="saveDetail('${t.id}')">Save Changes</button>
     </div>
   </div>`;
 }
@@ -488,17 +498,33 @@ async function fetchDetailPlayers(teamId){
 async function saveDetail(id){
   const t = state.teams.find(x=>x.id===id);
   if(!t) return;
+
+  const newStatus = document.getElementById("detStatus").value;
+  const newPaid = document.getElementById("detPaid").value==="yes";
   const patch = {
-    payment_paid: document.getElementById("detPaid").value==="yes",
+    payment_paid: newPaid,
     payment_amount: Number(document.getElementById("detAmount").value) || 0,
     payment_processed_by: document.getElementById("detProcessedBy").value || null,
     payment_date_received: document.getElementById("detDateReceived").value || null,
+    invoice_number: document.getElementById("detInvoice").value || null,
     receipt_number: document.getElementById("detReceipt").value || null,
-    approval_status: document.getElementById("detStatus").value,
+    approval_status: newStatus,
     team_id_number: document.getElementById("detTeamId").value || null,
     pool_zone: document.getElementById("detPool").value || null,
     approval_comments: document.getElementById("detComments").value || null
   };
+
+  if(newStatus === "Approved" && !patch.invoice_number){
+    const { data: invNum, error: invErr } = await sb.rpc("next_invoice_number");
+    if(invErr){ showToast("Could not generate invoice number: " + invErr.message); }
+    else { patch.invoice_number = invNum; patch.invoice_issued_at = new Date().toISOString(); }
+  }
+  if(newPaid && !patch.receipt_number){
+    const { data: rcptNum, error: rcptErr } = await sb.rpc("next_receipt_number");
+    if(rcptErr){ showToast("Could not generate receipt number: " + rcptErr.message); }
+    else { patch.receipt_number = rcptNum; patch.receipt_issued_at = new Date().toISOString(); }
+  }
+
   const { error } = await sb.from("teams").update(patch).eq("id", id);
   if(error){ showToast("Save failed: " + error.message); return; }
   Object.assign(t, patch);
@@ -506,6 +532,81 @@ async function saveDetail(id){
   closeDetail();
 }
 window.saveDetail = saveDetail;
+
+/* ---- Printable invoice / receipt (browser print → Save as PDF) ---- */
+function openPrintDocument(title, bodyHtml){
+  const win = window.open("", "_blank");
+  if(!win){ showToast("Please allow pop-ups to print this document."); return; }
+  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>
+    body{font-family:Arial,Helvetica,sans-serif;color:#16140F;padding:40px;max-width:680px;margin:0 auto;}
+    .letterhead{display:flex;align-items:center;gap:16px;border-bottom:3px solid #F5B700;padding-bottom:16px;margin-bottom:24px;}
+    .letterhead img{height:64px;}
+    .letterhead h1{font-size:20px;margin:0;}
+    .letterhead p{margin:2px 0 0 0;font-size:12px;color:#555;}
+    table{width:100%;border-collapse:collapse;margin:20px 0;}
+    td,th{padding:8px;border:1px solid #ccc;text-align:left;font-size:13px;vertical-align:top;}
+    th{width:160px;background:#F5F0E4;}
+    .doc-title{font-size:22px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin:20px 0 4px;}
+    .doc-number{font-family:monospace;color:#555;margin-bottom:20px;}
+    .amount{font-size:26px;font-weight:bold;color:#1F6F4A;}
+    .footer{margin-top:40px;font-size:11px;color:#777;border-top:1px solid #ccc;padding-top:12px;}
+    .no-print button{padding:10px 18px;font-size:14px;cursor:pointer;}
+    @media print{ .no-print{display:none;} }
+  </style></head><body>${bodyHtml}
+  <div class="no-print" style="margin-top:24px;"><button onclick="window.print()">Print / Save as PDF</button></div>
+  </body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>{ try{ win.print(); }catch(e){} }, 300);
+}
+
+function printInvoice(teamId){
+  const t = state.teams.find(x=>x.id===teamId);
+  if(!t || !t.invoice_number) return;
+  const logoUrl = new URL("assets/img/logo.png", window.location.href).href;
+  const body = `
+    <div class="letterhead">
+      <img src="${logoUrl}">
+      <div><h1>NCD Games 2026</h1><p>NCDC Sports Office &middot; Level 1, City Hall &middot; Port Moresby</p></div>
+    </div>
+    <div class="doc-title">Invoice</div>
+    <div class="doc-number">${escapeHtml(t.invoice_number)} &middot; issued ${t.invoice_issued_at ? new Date(t.invoice_issued_at).toLocaleDateString('en-GB') : '—'}</div>
+    <table>
+      <tr><th>Club</th><td>${escapeHtml(t.club_name)}</td></tr>
+      <tr><th>Sporting Code</th><td>${escapeHtml(t.sporting_code)} — ${escapeHtml(t.category)}</td></tr>
+      <tr><th>Electorate</th><td>${escapeHtml(t.electorate)}</td></tr>
+      <tr><th>Team Manager</th><td>${escapeHtml(t.manager_given_name)} ${escapeHtml(t.manager_surname)} &middot; ${escapeHtml(t.manager_phone)}</td></tr>
+    </table>
+    <p>Amount due: <span class="amount">K${escapeHtml(t.payment_amount)}</span></p>
+    <p>Please pay at the <b>NCDC Sports Office, Level 1, City Hall</b>, quoting invoice number <b>${escapeHtml(t.invoice_number)}</b>.</p>
+    <div class="footer">NCD Games 2026 — One People, One City, One Future</div>`;
+  openPrintDocument(`Invoice ${t.invoice_number}`, body);
+}
+window.printInvoice = printInvoice;
+
+function printReceipt(teamId){
+  const t = state.teams.find(x=>x.id===teamId);
+  if(!t || !t.receipt_number) return;
+  const logoUrl = new URL("assets/img/logo.png", window.location.href).href;
+  const body = `
+    <div class="letterhead">
+      <img src="${logoUrl}">
+      <div><h1>NCD Games 2026</h1><p>NCDC Sports Office &middot; Level 1, City Hall &middot; Port Moresby</p></div>
+    </div>
+    <div class="doc-title">Receipt</div>
+    <div class="doc-number">${escapeHtml(t.receipt_number)} &middot; issued ${t.receipt_issued_at ? new Date(t.receipt_issued_at).toLocaleDateString('en-GB') : '—'}</div>
+    <table>
+      <tr><th>Club</th><td>${escapeHtml(t.club_name)}</td></tr>
+      <tr><th>Sporting Code</th><td>${escapeHtml(t.sporting_code)} — ${escapeHtml(t.category)}</td></tr>
+      <tr><th>Amount Paid</th><td>K${escapeHtml(t.payment_amount)}</td></tr>
+      <tr><th>Date Received</th><td>${escapeHtml(t.payment_date_received||'—')}</td></tr>
+      <tr><th>Processed By</th><td>${escapeHtml(t.payment_processed_by||'—')}</td></tr>
+    </table>
+    <p>This confirms the NCD Games 2026 registration fee has been received in full.</p>
+    <div class="footer">NCD Games 2026 — One People, One City, One Future</div>`;
+  openPrintDocument(`Receipt ${t.receipt_number}`, body);
+}
+window.printReceipt = printReceipt;
 
 /* ================= FIXTURES ================= */
 function getApprovedPools(){

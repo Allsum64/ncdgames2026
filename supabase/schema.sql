@@ -161,6 +161,39 @@ create trigger trg_check_player_cap
   execute function public.check_player_cap();
 
 -- =========================================================
+-- Sequential invoice/receipt numbers.
+-- Called by the admin app (via RPC) when a team is approved or marked
+-- paid, so numbers are assigned atomically even with concurrent admins.
+-- Printable invoice/receipt PDFs are generated client-side (browser
+-- print dialog) — there is no email step.
+-- =========================================================
+create sequence if not exists public.invoice_seq start 1;
+create sequence if not exists public.receipt_seq start 1;
+
+create or replace function public.next_invoice_number()
+returns text
+language sql
+security definer
+set search_path = public
+as $$
+  select 'INV-2026-' || lpad(nextval('invoice_seq')::text, 4, '0');
+$$;
+
+create or replace function public.next_receipt_number()
+returns text
+language sql
+security definer
+set search_path = public
+as $$
+  select 'RCT-2026-' || lpad(nextval('receipt_seq')::text, 4, '0');
+$$;
+
+revoke all on function public.next_invoice_number() from public;
+revoke all on function public.next_receipt_number() from public;
+grant execute on function public.next_invoice_number() to authenticated;
+grant execute on function public.next_receipt_number() to authenticated;
+
+-- =========================================================
 -- Row Level Security
 --
 -- Public (anon key, no login) may:
