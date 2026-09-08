@@ -492,7 +492,10 @@ function renderDetailModal(){
         ${t.receipt_number ? `<button class="btn secondary small" onclick="printReceipt('${t.id}')">Print Receipt</button>` : ""}
       </div>
 
-      <button class="btn" style="margin-top:16px;" onclick="saveDetail('${t.id}')">Save Changes</button>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+        <button class="btn" onclick="saveDetail('${t.id}')">Save Changes</button>
+        <button class="btn danger small" onclick="deleteTeam('${t.id}')">Delete Team</button>
+      </div>
     </div>
   </div>`;
 }
@@ -555,6 +558,20 @@ async function saveDetail(id){
   closeDetail();
 }
 window.saveDetail = saveDetail;
+
+async function deleteTeam(id){
+  const t = state.teams.find(x=>x.id===id);
+  if(!t) return;
+  if(!confirm(`Delete "${t.club_name}" and all its players? This cannot be undone. Any fixtures already generated for this team will keep their scores/history but stop linking back to it.`)){
+    return;
+  }
+  const { error } = await sb.from("teams").delete().eq("id", id);
+  if(error){ showToast("Delete failed: " + error.message); return; }
+  state.teams = state.teams.filter(x=>x.id!==id);
+  showToast(`Team "${t.club_name}" deleted.`);
+  closeDetail();
+}
+window.deleteTeam = deleteTeam;
 
 /* ---- Printable invoice / receipt (browser print → Save as PDF) ---- */
 function openPrintDocument(title, bodyHtml){
