@@ -37,7 +37,11 @@ let state = {
   standingsPool: null,
   dirFilters: { code:"", category:"", electorate:"", status:"" },
   loginOpen: false,
-  loginError: ""
+  loginMode: "signin",   // "signin" | "forgot"
+  loginError: "",
+  loginNotice: "",
+  resetPasswordOpen: false,
+  resetPasswordError: ""
 };
 
 function poolKeyOf(t){ return `${t.sporting_code}||${t.category}||${t.electorate}`; }
@@ -114,7 +118,26 @@ function render(){
   // even once state.session is actually set.
   const existingOverlay = document.getElementById("loginOverlay");
   if(existingOverlay) existingOverlay.remove();
-  if(state.loginOpen) document.body.insertAdjacentHTML("beforeend", renderLoginModal());
+  if(state.loginOpen){
+    document.body.insertAdjacentHTML("beforeend", renderLoginModal());
+    // Attached here, not in attachHandlers() below: these modals live
+    // outside #app, and attachHandlers() only runs past the !CONFIGURED /
+    // state.loading early-returns a few lines down - a PASSWORD_RECOVERY
+    // event firing during that initial window would otherwise insert a
+    // dead form with no submit listener.
+    const lf = document.getElementById("loginForm");
+    if(lf) lf.addEventListener("submit", handleLoginSubmit);
+    const ff = document.getElementById("forgotForm");
+    if(ff) ff.addEventListener("submit", handleForgotSubmit);
+  }
+
+  const existingResetOverlay = document.getElementById("resetPasswordOverlay");
+  if(existingResetOverlay) existingResetOverlay.remove();
+  if(state.resetPasswordOpen){
+    document.body.insertAdjacentHTML("beforeend", renderResetPasswordModal());
+    const rpf = document.getElementById("resetPasswordForm");
+    if(rpf) rpf.addEventListener("submit", handleResetPasswordSubmit);
+  }
 
   if(!CONFIGURED){
     document.getElementById("app").innerHTML = `<div class="panel"><h2>Not connected yet</h2>
@@ -139,16 +162,46 @@ function render(){
 }
 
 /* ================= AUTH ================= */
-function openLogin(){ state.loginOpen = true; state.loginError=""; render(); }
+function openLogin(){
+  state.loginOpen = true;
+  state.loginMode = "signin";
+  state.loginError = "";
+  state.loginNotice = "";
+  render();
+}
 window.openLogin = openLogin;
 function closeLogin(){ state.loginOpen = false; render(); }
 window.closeLogin = closeLogin;
 
+function showForgotPassword(ev){
+  if(ev) ev.preventDefault();
+  state.loginMode = "forgot";
+  state.loginError = "";
+  state.loginNotice = "";
+  render();
+}
+window.showForgotPassword = showForgotPassword;
+
+function showSignIn(ev){
+  if(ev) ev.preventDefault();
+  state.loginMode = "signin";
+  state.loginError = "";
+  state.loginNotice = "";
+  render();
+}
+window.showSignIn = showSignIn;
+
 function renderLoginModal(){
-  return `
-  <div class="modal-overlay" id="loginOverlay" onclick="if(event.target===this) closeLogin()">
-    <div class="modal login-box">
-      <button class="close" onclick="closeLogin()">✕</button>
+  const body = state.loginMode === "forgot" ? `
+      <h3>Reset Password</h3>
+      <p class="desc">Enter your admin email and we'll send a password reset link.</p>
+      <form id="forgotForm">
+        <div class="field"><label>Email</label><input type="email" name="email" required></div>
+        ${state.loginError ? `<p class="desc" style="color:var(--ember);">${escapeHtml(state.loginError)}</p>` : ""}
+        ${state.loginNotice ? `<p class="desc" style="color:var(--pitch);">${escapeHtml(state.loginNotice)}</p>` : ""}
+        <button type="submit" class="btn">Send Reset Link</button>
+        <p style="margin-top:12px;"><a href="#" onclick="showSignIn(event)" style="font-size:12.5px;color:var(--ash);">Back to sign in</a></p>
+      </form>` : `
       <h3>Admin Login</h3>
       <p class="desc">For NCD Games organizing committee / sports office staff only.</p>
       <form id="loginForm">
@@ -156,7 +209,13 @@ function renderLoginModal(){
         <div class="field"><label>Password</label><input type="password" name="password" required></div>
         ${state.loginError ? `<p class="desc" style="color:var(--ember);">${escapeHtml(state.loginError)}</p>` : ""}
         <button type="submit" class="btn">Sign In</button>
-      </form>
+        <p style="margin-top:12px;"><a href="#" onclick="showForgotPassword(event)" style="font-size:12.5px;color:var(--ash);">Forgot password?</a></p>
+      </form>`;
+  return `
+  <div class="modal-overlay" id="loginOverlay" onclick="if(event.target===this) closeLogin()">
+    <div class="modal login-box">
+      <button class="close" onclick="closeLogin()">✕</button>
+      ${body}
     </div>
   </div>`;
 }
@@ -175,6 +234,20 @@ async function handleLoginSubmit(ev){
   await loadTeams();
   render();
 }
+async function handleForgotSubmit(ev){
+  ev.preventDefault();
+  const fd = new FormData(ev.target);
+  const email = fd.get("email");
+  const btn = ev.target.querySelector("button[type=submit]");
+  btn.disabled = true; btn.textContent = "Sending…";
+  const redirectTo = window.location.origin + window.location.pathname;
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+  btn.disabled = false; btn.textContent = "Send Reset Link";
+  if(error){ state.loginError = error.message; state.loginNotice = ""; render(); return; }
+  state.loginError = "";
+  state.loginNotice = "If that email has an admin account, a reset link is on its way — check your inbox.";
+  render();
+}
 async function doLogout(){
   await sb.auth.signOut();
   state.session = null;
@@ -183,6 +256,51 @@ async function doLogout(){
   render();
 }
 window.doLogout = doLogout;
+
+// Shown automatically when the user lands back on the site from a password
+// reset email link — Supabase fires a PASSWORD_RECOVERY auth event (see the
+// onAuthStateChange listener near the bottom of this file), not something
+// triggered by a button click here.
+function renderResetPasswordModal(){
+  return `
+  <div class="modal-overlay" id="resetPasswordOverlay">
+    <div class="modal login-box">
+      <button class="close" onclick="closeResetPassword()">✕</button>
+      <h3>Set a New Password</h3>
+      <p class="desc">You followed a password reset link. Choose a new admin password below.</p>
+      <form id="resetPasswordForm">
+        <div class="field"><label>New Password</label><input type="password" name="password" minlength="6" required></div>
+        <div class="field"><label>Confirm Password</label><input type="password" name="confirm" minlength="6" required></div>
+        ${state.resetPasswordError ? `<p class="desc" style="color:var(--ember);">${escapeHtml(state.resetPasswordError)}</p>` : ""}
+        <button type="submit" class="btn">Set Password</button>
+      </form>
+    </div>
+  </div>`;
+}
+async function handleResetPasswordSubmit(ev){
+  ev.preventDefault();
+  const fd = new FormData(ev.target);
+  const password = fd.get("password"), confirm = fd.get("confirm");
+  if(password !== confirm){ state.resetPasswordError = "Passwords don't match."; render(); return; }
+  if(password.length < 6){ state.resetPasswordError = "Password must be at least 6 characters."; render(); return; }
+  const btn = ev.target.querySelector("button[type=submit]");
+  btn.disabled = true; btn.textContent = "Saving…";
+  const { error } = await sb.auth.updateUser({ password });
+  btn.disabled = false; btn.textContent = "Set Password";
+  if(error){ state.resetPasswordError = error.message; render(); return; }
+  state.resetPasswordOpen = false;
+  state.resetPasswordError = "";
+  showToast("Password updated — you're signed in.");
+  await loadTeams();
+  render();
+}
+async function closeResetPassword(){
+  state.resetPasswordOpen = false;
+  await sb.auth.signOut();
+  state.session = null;
+  render();
+}
+window.closeResetPassword = closeResetPassword;
 
 /* ================= REGISTER ================= */
 function renderRegister(){
@@ -914,8 +1032,8 @@ function escapeAttr(s){ return escapeHtml(s); }
 function attachHandlers(){
   const rf = document.getElementById("regForm");
   if(rf) rf.addEventListener("submit", handleRegisterSubmit);
-  const lf = document.getElementById("loginForm");
-  if(lf) lf.addEventListener("submit", handleLoginSubmit);
+  // loginForm/forgotForm/resetPasswordForm are attached in render() itself,
+  // right where they're inserted — see the comment there for why.
   if(state.tab==="directory" && state.detailTeamId){
     const t = state.teams.find(x=>x.id===state.detailTeamId);
     if(t && t._players===undefined){ t._players = null; fetchDetailPlayers(t.id); }
@@ -940,8 +1058,16 @@ window.updatePaymentRequiredHint = updatePaymentRequiredHint;
 
 /* ---------------- Init ---------------- */
 if(sb){
-  sb.auth.onAuthStateChange((_event, session)=>{
+  sb.auth.onAuthStateChange((event, session)=>{
     state.session = session;
+    // Fired when the user lands back on the site from the link in a
+    // password-reset email (Supabase parses the recovery token from the
+    // URL automatically). Not triggered by anything in this app's own UI.
+    if(event === "PASSWORD_RECOVERY"){
+      state.resetPasswordOpen = true;
+      state.loginOpen = false;
+      render();
+    }
   });
 }
 loadAll();
